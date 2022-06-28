@@ -1,3 +1,0 @@
-[submodule "comnetsemu"]
-	path = comnetsemu
-	url = git@github.com:stevelorenz/comnetsemu.git
