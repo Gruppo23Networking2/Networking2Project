@@ -1,5 +1,4 @@
-#!/usr/bin/python3
-
+#!/usr/bin/env python3
 from mininet.topo import Topo
 from mininet.net import Mininet
 from mininet.node import OVSKernelSwitch, RemoteController
@@ -9,22 +8,19 @@ from mininet.link import TCLink
 
 class Topology(Topo):
     def __init__(self):
-
         # Initialize topology
         Topo.__init__(self)
 
         # Create template host, server, switch, and link
         host_config = {"inNamespace": True}
         server_config = {"inNamespace": True}
-        http_link_config = {"bw": 1}
-        voip_link_config = {"bw": 5}
-        video_link_config = {"bw": 10}
+
         host_link_config = {}
         server_link_config = {}
+        http_link_config = {}
 
         # Create switch nodes
         for i in range(3):
-
             switch_config = {
                 "dpid": "%016x" % (i + 1),  # TODO: Pythonize
             }
