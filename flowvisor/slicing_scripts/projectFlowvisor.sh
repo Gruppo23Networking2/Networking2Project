@@ -41,32 +41,20 @@ fvctl -f /etc/flowvisor/flowvisor.passwd list-slices
 
 # Define flowspaces
 echo "Definition of flowspaces..."
-
 # fvctl add-flowspace [options] <flowspace-name> <dpid> <priority> <match> <slice-perm>
 
-#Connecting client and server slices
-fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid1-port1-http-to-server-src 1 100 any server=7
+fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid1-port1 1 100 in_port=1 client=7
+fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid1-port2 1 100 in_port=2 client=7
+fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid1-port3 1 100 in_port=3 client=7
+fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid1-port4 1 100 in_port=4,dl_type=0x0800,nw_proto=6 client=7
+fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid1-port5 1 100 in_port=5,dl_type=0x0800,nw_proto=11 client=7
 
-fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid1-port4-http-to-server-dst 1 100 any client=7
+fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid2-port1 2 100 in_port=1 server=7
+fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid2-port2 2 100 in_port=2,dl_type=0x0800,nw_proto=6 server=7
+fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid2-port3 2 100 in_port=3 server=7
+fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid2-port4 2 100 in_port=4 server=7
 
-
-#Connecting server and admin slices
-fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid3-port2-admin-to-server-src 3 100 any server=7
-
-fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid3-port1-admin-to-client-src 3 100 any client=7
-
-# server to admin
-fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid2-port1-server-to-admin-src 2 100 any admin=7
-
-
-
-# internal switches
-
-
-fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid1-client 1 100 any client=7
-fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid2-server 2 100 any server=7
-fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid3-admin 3 100 any admin=7
-
+fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid3 3 100 any admin=7
 
 # Check all the flowspaces added
 echo "Check all flowspaces just defined:"

@@ -18,6 +18,7 @@ class Topology(Topo):
         host_link_config = {}
         server_link_config = {}
         http_link_config = {}
+        http_link_config_bw = {"bw": 10}
 
         # Create switch nodes
         for i in range(3):
@@ -47,7 +48,7 @@ class Topology(Topo):
 
         # Add switch links
         self.addLink("switch-1", "switch-3", 5, 1, **http_link_config)
-        self.addLink("switch-1", "switch-2", 4, 2, **http_link_config)
+        self.addLink("switch-1", "switch-2", 4, 2, **http_link_config_bw)
         self.addLink("switch-2", "switch-3", 1, 2, **http_link_config)
 
         # Add host links

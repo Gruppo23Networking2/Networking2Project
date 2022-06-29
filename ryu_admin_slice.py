@@ -4,12 +4,7 @@ from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_0
-from ryu.lib.packet import packet
-from ryu.lib.packet import ethernet
-from ryu.lib.packet import ether_types
-from ryu.lib.packet import udp
-from ryu.lib.packet import tcp
-from ryu.lib.packet import icmp
+from ryu.lib.packet import packet, ethernet, ether_types, udp, tcp, icmp
 
 
 class AdminSlice(app_manager.RyuApp):
@@ -30,8 +25,9 @@ class AdminSlice(app_manager.RyuApp):
                 "00:00:00:00:00:07": 2,
             },
         }
-        self.end_switches = [3]
 
+        self.end_switches = [3]
+        self.WOL_PORT = 9
 
     def add_flow(self, datapath, priority, match, actions):
         ofproto = datapath.ofproto
@@ -49,11 +45,13 @@ class AdminSlice(app_manager.RyuApp):
             flags=ofproto.OFPFF_SEND_FLOW_REM,
             actions=actions,
         )
+
         datapath.send_msg(mod)
 
     def _send_package(self, msg, datapath, in_port, actions):
         data = None
         ofproto = datapath.ofproto
+
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
             data = msg.data
 
@@ -64,6 +62,7 @@ class AdminSlice(app_manager.RyuApp):
             actions=actions,
             data=data,
         )
+
         datapath.send_msg(out)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
@@ -73,29 +72,36 @@ class AdminSlice(app_manager.RyuApp):
         ofproto = datapath.ofproto
         in_port = msg.in_port
         dpid = datapath.id
-        print(dpid)
 
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocol(ethernet.ethernet)
 
+        # ignore lldp packet
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            # ignore lldp packet
             return
+
         dst = eth.dst
         src = eth.src
 
-        # self.logger.info("packet in s%s in_port=%s eth_src=%s eth_dst=%s pkt=%s", dpid, in_port, src, dst, pkt)
-        # self.logger.info("INFO packet served from AdminSlice controller")
-        self.logger.info(f"INFO packet arrived in switch-{dpid} (in_port={in_port})")
+        self.logger.info(
+            f"INFO packet arrived in switch-{dpid} (in_port={in_port}, eth_src={src}, eth_dst={dst})"
+        )
 
+        # Check if destination is in the routing table
         if (dpid in self.mac_to_port) and (dst in self.mac_to_port[dpid]):
-            if pkt.get_protocol(udp.udp):
+
+            # If the packet is UDP and sent on port WOL_PORT then it can pass
+            if pkt.get_protocol(udp.udp) and (
+                pkt.get_protocol(udp.udp).dst_port == self.WOL_PORT
+                or pkt.get_protocol(udp.udp).src_port == self.WOL_PORT
+            ):
                 out_port = self.mac_to_port[dpid][dst]
+                
                 self.logger.info(
-                    "INFO sending packet from s%s (out_port=%s) w/ UDP rule",
-                    dpid,
-                    out_port,
+                    f"INFO sending packet from s{dpid} (out_port={out_port}) w/ UDP {self.WOL_PORT} rule"
                 )
+
+                actions = [datapath.ofproto_parser.OFPActionOutput(out_port)]
                 match = datapath.ofproto_parser.OFPMatch(
                     in_port=in_port,
                     dl_dst=dst,
@@ -103,17 +109,25 @@ class AdminSlice(app_manager.RyuApp):
                     dl_type=ether_types.ETH_TYPE_IP,
                     nw_proto=0x11,  # udp
                 )
-                actions = [datapath.ofproto_parser.OFPActionOutput(out_port)]
+
                 self.add_flow(datapath, 1, match, actions)
                 self._send_package(msg, datapath, in_port, actions)
 
+            # UDP packets sent on ports other than WOL_PORT are not allowed
+            elif pkt.get_protocol(udp.udp):
+                self.logger.info(
+                    f"INFO blocked from switch-{dpid} (in_port={in_port}) w/ UPD rule"
+                )
+
+            # Behaviour if the packet is TCP
             elif pkt.get_protocol(tcp.tcp):
                 out_port = self.mac_to_port[dpid][dst]
+
                 self.logger.info(
-                    "INFO sending packet from s%s (out_port=%s) w/ TCP rule",
-                    dpid,
-                    out_port,
+                    f"INFO sending packet from switch-{dpid} (out_port={out_port}) w/ TCP rule"
                 )
+
+                actions = [datapath.ofproto_parser.OFPActionOutput(out_port)]
                 match = datapath.ofproto_parser.OFPMatch(
                     in_port=in_port,
                     dl_dst=dst,
@@ -121,17 +135,19 @@ class AdminSlice(app_manager.RyuApp):
                     dl_type=ether_types.ETH_TYPE_IP,
                     nw_proto=0x06,  # tcp
                 )
-                actions = [datapath.ofproto_parser.OFPActionOutput(out_port)]
+
                 self.add_flow(datapath, 1, match, actions)
                 self._send_package(msg, datapath, in_port, actions)
 
+            # Behaviour if the packet is ICMP
             elif pkt.get_protocol(icmp.icmp):
                 out_port = self.mac_to_port[dpid][dst]
+
                 self.logger.info(
-                    "INFO sending packet from s%s (out_port=%s) w/ ICMP rule",
-                    dpid,
-                    out_port,
+                    f"INFO sending packet from switch-{dpid} (out_port={out_port}) w/ ICMP rule"
                 )
+
+                actions = [datapath.ofproto_parser.OFPActionOutput(out_port)]
                 match = datapath.ofproto_parser.OFPMatch(
                     in_port=in_port,
                     dl_dst=dst,
@@ -139,18 +155,20 @@ class AdminSlice(app_manager.RyuApp):
                     dl_type=ether_types.ETH_TYPE_IP,
                     nw_proto=0x01,  # icmp
                 )
-                actions = [datapath.ofproto_parser.OFPActionOutput(out_port)]
+
                 self.add_flow(datapath, 1, match, actions)
                 self._send_package(msg, datapath, in_port, actions)
 
+        # If destination is unknown flood all switch ports
         elif dpid not in self.end_switches:
             out_port = ofproto.OFPP_FLOOD
+
             self.logger.info(
-                "INFO sending packet from s%s (out_port=%s) w/ flooding rule",
-                dpid,
-                out_port,
+                f"INFO sending packet from switch-{dpid} (out_port={out_port}) w/ flooding rule"
             )
+
             actions = [datapath.ofproto_parser.OFPActionOutput(out_port)]
             match = datapath.ofproto_parser.OFPMatch(in_port=in_port)
+
             self.add_flow(datapath, 1, match, actions)
             self._send_package(msg, datapath, in_port, actions)
