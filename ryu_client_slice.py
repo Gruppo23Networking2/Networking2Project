@@ -45,17 +45,11 @@ class ClientSlice(app_manager.RyuApp):
 
         self.end_switches = [1]
         self.HTTP_PORT = 80
-        self.RDP_PORT = 3389
 
         # Just for test purposes
         self.WOL_PORT = 9
         self.admins = ["00:00:00:00:00:04", "00:00:00:00:00:05"]
         self.admin_port = 5
-
-        # Just for test purposes
-        self.admins = ["00:00:00:00:00:04", "00:00:00:00:00:05"]
-        self.admin_port = 5
-        self.WOL_PORT = 9
 
     def add_flow(self, datapath, priority, match, actions):
         ofproto = datapath.ofproto
@@ -114,7 +108,7 @@ class ClientSlice(app_manager.RyuApp):
         # Check if the source should be able to contact the destination
         if self.blacklist(src, dst):
             self.logger.info(
-                f"INFO blocked packet in s{dpid} (eth_src={src}, eth_dst={dst}) w/ Blacklist rule",
+                f"INFO blocked packet in switch-{dpid} (eth_src={src}, eth_dst={dst}) w/ Blacklist rule",
             )
             return
 
@@ -123,22 +117,14 @@ class ClientSlice(app_manager.RyuApp):
         )
 
         # Check if destination is in the routing table
-
-                # Just for test purposes if UDP traffic on port 9 wants to go to admin slice, then it should
-                if dst in self.admins and pkt.get_protocol(udp.udp).dst_port == self.WOL_PORT:
-                    out_port = self.admin_port
         if (dpid in self.mac_to_port) and (dst in self.mac_to_port[dpid]):
 
-            # Behaviour if the packet is UDP
-            if pkt.get_protocol(udp.udp):
+            # Just for test purposes if traffic on UDP port 9 then it's ok
+            if pkt.get_protocol(udp.udp) and (pkt.get_protocol(udp.udp).dst_port == self.WOL_PORT or pkt.get_protocol(udp.udp).src_port == self.WOL_PORT):
                 out_port = self.mac_to_port[dpid][dst]
 
-                # Just for test purposes if traffic on UDP port 9 comes from the admin slice it should also go back
-                if dst in self.admins and pkt.get_protocol(udp.udp).dst_port == self.WOL_PORT:
-                    out_port = self.admin_port
-                
                 self.logger.info(
-                    f"INFO sending packet from switch-{dpid} (out_port={out_port}) w/ UDP rule"
+                    f"INFO sending packet from switch-{dpid} (out_port={out_port}) w/ WOL rule"
                 )
 
                 actions = [datapath.ofproto_parser.OFPActionOutput(out_port)]
@@ -152,6 +138,12 @@ class ClientSlice(app_manager.RyuApp):
 
                 self.add_flow(datapath, 1, match, actions)
                 self._send_package(msg, datapath, in_port, actions)
+            
+            # UDP
+            elif pkt.get_protocol(udp.udp) :
+                self.logger.info(
+                    f"INFO blocked packet from switch-{dpid} w/ UDP rule"
+                )
 
             # If the packet is TCP and sent on port HTTP_PORT then it can pass
             elif pkt.get_protocol(tcp.tcp) and (

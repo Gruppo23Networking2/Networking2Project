@@ -28,6 +28,7 @@ class AdminSlice(app_manager.RyuApp):
 
         self.end_switches = [3]
         self.WOL_PORT = 9
+        self.SERVERS_PORT = 2
 
     def add_flow(self, datapath, priority, match, actions):
         ofproto = datapath.ofproto
@@ -91,9 +92,13 @@ class AdminSlice(app_manager.RyuApp):
         if (dpid in self.mac_to_port) and (dst in self.mac_to_port[dpid]):
 
             # If the packet is UDP and sent on port WOL_PORT then it can pass
+            # If the packet is UDP and sent to server slice then it can pass
             if pkt.get_protocol(udp.udp) and (
-                pkt.get_protocol(udp.udp).dst_port == self.WOL_PORT
-                or pkt.get_protocol(udp.udp).src_port == self.WOL_PORT
+                (
+                    pkt.get_protocol(udp.udp).dst_port == self.WOL_PORT
+                    or pkt.get_protocol(udp.udp).src_port == self.WOL_PORT
+                )
+                or (self.mac_to_port[dpid][dst] == self.SERVERS_PORT)
             ):
                 out_port = self.mac_to_port[dpid][dst]
                 
@@ -113,10 +118,10 @@ class AdminSlice(app_manager.RyuApp):
                 self.add_flow(datapath, 1, match, actions)
                 self._send_package(msg, datapath, in_port, actions)
 
-            # UDP packets sent on ports other than WOL_PORT are not allowed
+            # UDP packets sent on ports other than WOL_PORT directed to client slice are not allowed
             elif pkt.get_protocol(udp.udp):
                 self.logger.info(
-                    f"INFO blocked from switch-{dpid} (in_port={in_port}) w/ UPD rule"
+                    f"INFO blocked from switch-{dpid} (in_port={in_port}) w/ UDP rule"
                 )
 
             # Behaviour if the packet is TCP

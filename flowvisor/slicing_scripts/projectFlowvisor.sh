@@ -47,7 +47,7 @@ fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid1-port1 1 100 in_port
 fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid1-port2 1 100 in_port=2 client=7
 fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid1-port3 1 100 in_port=3 client=7
 fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid1-port4 1 100 in_port=4,dl_type=0x0800,nw_proto=6 client=7
-fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid1-port5 1 100 in_port=5,dl_type=0x0800,nw_proto=11 client=7
+fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid1-port5 1 100 in_port=5 client=7
 
 fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid2-port1 2 100 in_port=1 server=7
 fvctl -f /etc/flowvisor/flowvisor.passwd add-flowspace dpid2-port2 2 100 in_port=2,dl_type=0x0800,nw_proto=6 server=7
