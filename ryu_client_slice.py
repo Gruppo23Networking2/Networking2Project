@@ -47,6 +47,16 @@ class ClientSlice(app_manager.RyuApp):
         self.HTTP_PORT = 80
         self.RDP_PORT = 3389
 
+        # Just for test purposes
+        self.WOL_PORT = 9
+        self.admins = ["00:00:00:00:00:04", "00:00:00:00:00:05"]
+        self.admin_port = 5
+
+        # Just for test purposes
+        self.admins = ["00:00:00:00:00:04", "00:00:00:00:00:05"]
+        self.admin_port = 5
+        self.WOL_PORT = 9
+
     def add_flow(self, datapath, priority, match, actions):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
@@ -113,11 +123,19 @@ class ClientSlice(app_manager.RyuApp):
         )
 
         # Check if destination is in the routing table
+
+                # Just for test purposes if UDP traffic on port 9 wants to go to admin slice, then it should
+                if dst in self.admins and pkt.get_protocol(udp.udp).dst_port == self.WOL_PORT:
+                    out_port = self.admin_port
         if (dpid in self.mac_to_port) and (dst in self.mac_to_port[dpid]):
 
             # Behaviour if the packet is UDP
             if pkt.get_protocol(udp.udp):
                 out_port = self.mac_to_port[dpid][dst]
+
+                # Just for test purposes if traffic on UDP port 9 comes from the admin slice it should also go back
+                if dst in self.admins and pkt.get_protocol(udp.udp).dst_port == self.WOL_PORT:
+                    out_port = self.admin_port
                 
                 self.logger.info(
                     f"INFO sending packet from switch-{dpid} (out_port={out_port}) w/ UDP rule"
